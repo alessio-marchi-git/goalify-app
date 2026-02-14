@@ -104,9 +104,10 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
     error: null,
 
     initialize: async () => {
-        if (get().initialized) return;
+        // Allow re-initialization if there was an error
+        if (get().initialized && !get().error) return;
 
-        set({ loading: true, error: null });
+        set({ loading: true, error: null, initialized: false });
         const supabase = getSupabase();
 
         try {
@@ -190,6 +191,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             console.error('[TaskStore] Initialization error:', error);
             set({
                 loading: false,
+                initialized: false,
                 error: error instanceof Error ? error.message : 'Errore durante l\'inizializzazione'
             });
         }
@@ -204,12 +206,33 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         }
 
         const today = getToday();
+
+        // Check both store and database for existing tasks
         const existingTodayTasks = get().tasks.filter((t) => t.date === today);
 
         console.log('[TaskStore] Today:', today);
-        console.log('[TaskStore] Existing tasks for today:', existingTodayTasks.length);
+        console.log('[TaskStore] Existing tasks for today in store:', existingTodayTasks.length);
 
         if (existingTodayTasks.length === 0) {
+            // Double-check in database to avoid duplicates
+            const { data: dbTasks, error: checkError } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('date', today)
+                .eq('user_id', user.id);
+
+            if (checkError) {
+                console.error('[TaskStore] Error checking existing tasks:', checkError);
+            }
+
+            if (dbTasks && dbTasks.length > 0) {
+                console.log('[TaskStore] Found', dbTasks.length, 'tasks in DB, syncing to store');
+                set((state) => ({
+                    tasks: [...state.tasks, ...dbTasks],
+                }));
+                return;
+            }
+
             const enabledDefaults = get().defaultTasks.filter((dt) => dt.is_enabled);
             console.log('[TaskStore] Enabled default tasks:', enabledDefaults.length);
 
@@ -226,26 +249,20 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
 
             if (newTasks.length > 0) {
                 console.log('[TaskStore] Creating', newTasks.length, 'tasks for today...');
-                // Use upsert to handle race conditions (multiple tabs)
                 const { data, error } = await supabase
                     .from('tasks')
-                    .upsert(newTasks, {
-                        onConflict: 'user_id,name,date',
-                        ignoreDuplicates: true
-                    })
+                    .insert(newTasks)
                     .select();
 
                 if (error) {
                     console.error('[TaskStore] Error creating daily tasks:', error);
-                    set({ error: 'Errore durante la creazione dei task giornalieri' });
+                    set({ error: 'Errore durante la creazione dei task giornalieri: ' + error.message });
                     return;
                 }
 
                 if (data) {
                     console.log('[TaskStore] Successfully created', data.length, 'tasks');
                     set((state) => ({ tasks: [...state.tasks, ...data] }));
-                } else {
-                    console.warn('[TaskStore] No data returned from upsert (tasks may already exist)');
                 }
             } else {
                 console.log('[TaskStore] No enabled default tasks to create');

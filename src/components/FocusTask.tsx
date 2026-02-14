@@ -47,18 +47,7 @@ export function FocusTask() {
         }
     };
 
-    // Loading state
-    if (!initialized || loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-pulse">
-                    <Sparkles className="w-12 h-12 text-purple-400" />
-                </div>
-            </div>
-        );
-    }
-
-    // Error state
+    // Error state (check before loading so errors are visible)
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
@@ -81,6 +70,17 @@ export function FocusTask() {
                             Ricarica Pagina
                         </button>
                     </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Loading state
+    if (!initialized || loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-pulse">
+                    <Sparkles className="w-12 h-12 text-purple-400" />
                 </div>
             </div>
         );
