@@ -9,6 +9,10 @@ interface ConfettiProps {
 
 export function Confetti({ trigger }: ConfettiProps) {
     const fireConfetti = useCallback(() => {
+        // Check for reduced motion preference
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReducedMotion) return;
+
         const duration = 3000;
         const animationEnd = Date.now() + duration;
         const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };

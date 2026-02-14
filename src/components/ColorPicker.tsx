@@ -17,9 +17,11 @@ export function ColorPicker({ selectedColor, onColorChange }: ColorPickerProps) 
                     onClick={() => onColorChange(color)}
                     className="w-8 h-8 rounded-lg flex items-center justify-center transition-transform hover:scale-110"
                     style={{ backgroundColor: color }}
+                    aria-label={`Seleziona colore ${color}`}
+                    aria-pressed={selectedColor === color}
                 >
                     {selectedColor === color && (
-                        <Check className="w-4 h-4 text-white drop-shadow-md" />
+                        <Check className="w-4 h-4 text-white drop-shadow-md" aria-hidden="true" />
                     )}
                 </button>
             ))}

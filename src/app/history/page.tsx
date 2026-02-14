@@ -12,11 +12,14 @@ export default function HistoryPage() {
     const [viewMode, setViewMode] = useState<'all' | 'single'>('all');
     const [selectedTaskName, setSelectedTaskName] = useState<string | null>(null);
 
-    const { initialize, initialized, loading, tasks, getCompletedTasks, defaultTasks } = useSupabaseTaskStore();
+    const { initialized, loading, tasks, getCompletedTasks, defaultTasks, loadHistoricalTasks } = useSupabaseTaskStore();
 
+    // Load historical tasks if date range is outside cached range
     useEffect(() => {
-        initialize();
-    }, [initialize]);
+        if (initialized) {
+            loadHistoricalTasks(startDate, endDate);
+        }
+    }, [initialized, startDate, endDate, loadHistoricalTasks]);
 
     const completedTasks = useMemo(() => {
         return getCompletedTasks(startDate, endDate);
@@ -75,7 +78,7 @@ export default function HistoryPage() {
     if (!initialized || loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center">
-                <div className="animate-pulse text-gray-500">Caricamento...</div>
+                <div className="animate-pulse text-gray-500">Caricamento…</div>
             </div>
         );
     }
@@ -118,6 +121,7 @@ export default function HistoryPage() {
                                     if (e.target.value === 'all') setSelectedTaskName(null);
                                 }}
                                 className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                                style={{ colorScheme: 'dark' }}
                             >
                                 <option value="all">Tutti i Task</option>
                                 <option value="single">Singolo Task</option>
@@ -128,8 +132,9 @@ export default function HistoryPage() {
                                     value={selectedTaskName || ''}
                                     onChange={(e) => setSelectedTaskName(e.target.value)}
                                     className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                                    style={{ colorScheme: 'dark' }}
                                 >
-                                    <option value="">Seleziona...</option>
+                                    <option value="">Seleziona…</option>
                                     {uniqueTaskNames.map((name) => (
                                         <option key={name} value={name}>
                                             {name}

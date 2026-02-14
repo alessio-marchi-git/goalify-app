@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Menu, X, Calendar, ListTodo, History, Sparkles, LogOut } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -10,6 +10,12 @@ export function Header() {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
+    const pathname = usePathname();
+
+    // Don't show header on login page
+    if (pathname === '/login' || pathname.startsWith('/auth/')) {
+        return null;
+    }
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -18,9 +24,20 @@ export function Header() {
             }
         };
 
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && isOpen) {
+                setIsOpen(false);
+            }
+        };
+
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [isOpen]);
 
     const handleLogout = async () => {
         const supabase = createClient();
@@ -53,7 +70,9 @@ export function Header() {
                     <button
                         onClick={() => setIsOpen(!isOpen)}
                         className="p-2 rounded-xl hover:bg-white/5 transition-colors"
-                        aria-label="Menu"
+                        aria-label={isOpen ? 'Chiudi menu' : 'Apri menu'}
+                        aria-expanded={isOpen}
+                        aria-haspopup="true"
                     >
                         {isOpen ? (
                             <X className="w-6 h-6 text-gray-300" />
@@ -64,12 +83,16 @@ export function Header() {
 
                     {/* Dropdown */}
                     {isOpen && (
-                        <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-white/10 rounded-xl shadow-xl overflow-hidden">
+                        <div
+                            role="menu"
+                            className="absolute right-0 mt-2 w-48 bg-gray-900 border border-white/10 rounded-xl shadow-xl overflow-hidden"
+                        >
                             {menuItems.map((item) => (
                                 <Link
                                     key={item.href}
                                     href={item.href}
                                     onClick={() => setIsOpen(false)}
+                                    role="menuitem"
                                     className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
                                 >
                                     <item.icon className="w-5 h-5" />
@@ -83,7 +106,9 @@ export function Header() {
                             {/* Logout */}
                             <button
                                 onClick={handleLogout}
+                                role="menuitem"
                                 className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 transition-colors"
+                                aria-label="Disconnettiti"
                             >
                                 <LogOut className="w-5 h-5" />
                                 <span>Esci</span>

@@ -5,9 +5,9 @@
 CREATE TABLE default_tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  name TEXT NOT NULL,
+  name TEXT NOT NULL CHECK (char_length(name) <= 200),
   "order" INT NOT NULL,
-  color TEXT NOT NULL,
+  color TEXT NOT NULL CHECK (color ~ '^#[0-9a-fA-F]{6}$'),
   is_enabled BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -16,12 +16,12 @@ CREATE TABLE default_tasks (
 CREATE TABLE tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  name TEXT NOT NULL,
+  name TEXT NOT NULL CHECK (char_length(name) <= 200),
   date DATE NOT NULL,
   is_completed BOOLEAN DEFAULT false,
-  note TEXT,
+  note TEXT CHECK (note IS NULL OR char_length(note) <= 1000),
   "order" INT NOT NULL,
-  color TEXT NOT NULL,
+  color TEXT NOT NULL CHECK (color ~ '^#[0-9a-fA-F]{6}$'),
   is_enabled BOOLEAN DEFAULT true,
   task_type TEXT DEFAULT 'default' CHECK (task_type IN ('default', 'adhoc')),
   completed_at TIMESTAMPTZ,
@@ -31,7 +31,11 @@ CREATE TABLE tasks (
 -- Indexes for performance
 CREATE INDEX idx_tasks_user_date ON tasks(user_id, date);
 CREATE INDEX idx_tasks_user_completed ON tasks(user_id, is_completed);
+CREATE INDEX idx_tasks_user_completed_date ON tasks(user_id, is_completed, date);
 CREATE INDEX idx_default_tasks_user ON default_tasks(user_id);
+
+-- Prevent duplicate default tasks on the same day (race condition guard)
+CREATE UNIQUE INDEX unique_default_task_per_day ON tasks(user_id, name, date) WHERE task_type = 'default';
 
 -- Row Level Security (RLS)
 ALTER TABLE default_tasks ENABLE ROW LEVEL SECURITY;

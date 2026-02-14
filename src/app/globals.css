@@ -59,3 +59,18 @@ body {
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-up {
+    animation: none;
+  }
+}
+
+/* Global focus states for all interactive elements */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid rgb(168 85 247 / 0.5);
+  outline-offset: 2px;
+}

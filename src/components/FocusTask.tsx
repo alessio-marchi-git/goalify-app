@@ -10,18 +10,14 @@ export function FocusTask() {
     const [showConfetti, setShowConfetti] = useState(false);
 
     const {
-        initialize,
         loading,
         initialized,
         getCurrentTask,
         completeTask,
         isAllCompleted,
         getTodayTasks,
+        error,
     } = useSupabaseTaskStore();
-
-    useEffect(() => {
-        initialize();
-    }, [initialize]);
 
     const currentTask = getCurrentTask();
     const allDone = isAllCompleted();
@@ -52,6 +48,23 @@ export function FocusTask() {
         );
     }
 
+    // Error state
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+                <div className="space-y-4">
+                    <div className="text-red-400 text-lg">{error}</div>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                    >
+                        Riprova
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     // All tasks completed view
     if (allDone && totalCount > 0) {
         return (
@@ -62,13 +75,16 @@ export function FocusTask() {
                         <Check className="w-12 h-12 text-white" strokeWidth={3} />
                     </div>
                     <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent">
-                        Sei un grande!
+                        Sei un Grande!
                     </h1>
                     <p className="text-xl text-gray-400 max-w-md">
                         Continua così! Hai completato tutti i task di oggi. 🎉
                     </p>
                     <div className="pt-4">
-                        <span className="px-4 py-2 bg-white/5 rounded-full text-sm text-gray-400">
+                        <span
+                            className="px-4 py-2 bg-white/5 rounded-full text-sm text-gray-400"
+                            aria-live="polite"
+                        >
                             {completedCount}/{totalCount} completati
                         </span>
                     </div>
@@ -82,7 +98,7 @@ export function FocusTask() {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
                 <Sparkles className="w-16 h-16 text-purple-400 mb-6" />
-                <h1 className="text-3xl font-bold text-gray-200 mb-2">Nessun task per oggi</h1>
+                <h1 className="text-3xl font-bold text-gray-200 mb-2">Nessun Task per Oggi</h1>
                 <p className="text-gray-500">I task verranno caricati automaticamente</p>
             </div>
         );
@@ -95,7 +111,11 @@ export function FocusTask() {
 
             {/* Progress indicator */}
             <div className="fixed top-20 right-6">
-                <span className="px-4 py-2 bg-white/5 backdrop-blur-sm rounded-full text-sm text-gray-400 border border-white/10">
+                <span
+                    className="px-4 py-2 bg-white/5 backdrop-blur-sm rounded-full text-sm text-gray-400 border border-white/10"
+                    aria-live="polite"
+                    aria-label={`Progresso: ${completedCount} completati su ${totalCount}`}
+                >
                     {completedCount}/{totalCount}
                 </span>
             </div>
@@ -124,12 +144,17 @@ export function FocusTask() {
                     </label>
                     <textarea
                         id="note"
+                        name="note"
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
-                        placeholder="Aggiungi una nota..."
+                        placeholder="Aggiungi una nota…"
                         rows={3}
+                        maxLength={1000}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent resize-none transition-all"
                     />
+                    {note.length > 900 && (
+                        <p className="text-xs text-gray-500">{1000 - note.length} caratteri rimanenti</p>
+                    )}
                 </div>
 
                 {/* Complete button */}

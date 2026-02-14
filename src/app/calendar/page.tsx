@@ -25,22 +25,28 @@ export default function CalendarPage() {
     const [newTaskName, setNewTaskName] = useState('');
     const [newTaskColor, setNewTaskColor] = useState(TASK_COLORS[0]);
 
-    const { initialize, initialized, loading, tasks, getTasksByDate, addAdhocTask } = useSupabaseTaskStore();
+    const { initialized, loading, tasks, getTasksByDate, addAdhocTask } = useSupabaseTaskStore();
 
-    useEffect(() => {
-        initialize();
-    }, [initialize]);
-
-    const today = new Date();
-    const todayStr = format(today, 'yyyy-MM-dd');
+    const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
     const months = useMemo(() => {
+        const today = new Date();
         const result = [];
         for (let i = 0; i < monthsToShow; i++) {
             result.push(addMonths(today, i));
         }
         return result;
     }, [monthsToShow]);
+
+    // Pre-compute tasks by date for performance
+    const tasksByDate = useMemo(() => {
+        const map = new Map<string, Task[]>();
+        tasks.forEach((task) => {
+            const existing = map.get(task.date) || [];
+            map.set(task.date, [...existing, task]);
+        });
+        return map;
+    }, [tasks]);
 
     const handleDayClick = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
@@ -64,7 +70,7 @@ export default function CalendarPage() {
     if (!initialized || loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center">
-                <div className="animate-pulse text-gray-500">Caricamento...</div>
+                <div className="animate-pulse text-gray-500">Caricamento…</div>
             </div>
         );
     }
@@ -83,7 +89,7 @@ export default function CalendarPage() {
                             month={month}
                             selectedDate={selectedDate}
                             onDayClick={handleDayClick}
-                            tasks={tasks}
+                            tasksByDate={tasksByDate}
                             todayStr={todayStr}
                         />
                     ))}
@@ -115,6 +121,7 @@ export default function CalendarPage() {
                                 <button
                                     onClick={() => setSelectedDate(null)}
                                     className="p-2 hover:bg-white/10 rounded-lg"
+                                    aria-label="Chiudi"
                                 >
                                     <X className="w-5 h-5 text-gray-400" />
                                 </button>
@@ -179,16 +186,25 @@ export default function CalendarPage() {
                                 </button>
                             </div>
 
-                            <div className="space-y-4">
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    handleAddTask();
+                                }}
+                                className="space-y-4"
+                            >
                                 <div>
-                                    <label className="block text-sm text-gray-400 mb-2">Nome</label>
+                                    <label htmlFor="adhocTaskName" className="block text-sm text-gray-400 mb-2">Nome</label>
                                     <input
+                                        id="adhocTaskName"
+                                        name="adhocTaskName"
                                         type="text"
                                         value={newTaskName}
                                         onChange={(e) => setNewTaskName(e.target.value)}
                                         placeholder="Es. Appuntamento dottore"
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                                         autoFocus
+                                        required
                                     />
                                 </div>
 
@@ -201,13 +217,13 @@ export default function CalendarPage() {
                                 </div>
 
                                 <button
-                                    onClick={handleAddTask}
+                                    type="submit"
                                     disabled={!newTaskName.trim()}
                                     className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-semibold transition-all"
                                 >
                                     Aggiungi
                                 </button>
-                            </div>
+                            </form>
                         </div>
                     </div>
                 )}
