@@ -33,18 +33,19 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser();
 
-    // Redirect to login if not authenticated (except for login page)
+    // Redirect to login if not authenticated (except for login, auth, and reset-password pages)
     if (
         !user &&
         !request.nextUrl.pathname.startsWith('/login') &&
-        !request.nextUrl.pathname.startsWith('/auth')
+        !request.nextUrl.pathname.startsWith('/auth') &&
+        !request.nextUrl.pathname.startsWith('/reset-password')
     ) {
         const url = request.nextUrl.clone();
         url.pathname = '/login';
         return NextResponse.redirect(url);
     }
 
-    // Redirect to home if authenticated and on login page
+    // Redirect to home if authenticated and on login page (but allow reset-password)
     if (user && request.nextUrl.pathname.startsWith('/login')) {
         const url = request.nextUrl.clone();
         url.pathname = '/';

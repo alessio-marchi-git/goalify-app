@@ -8,6 +8,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLogin, setIsLogin] = useState(true);
+    const [isResetMode, setIsResetMode] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
@@ -35,8 +36,34 @@ export default function LoginPage() {
         return Math.ceil((cooldownUntil - Date.now()) / 1000);
     };
 
+    const handleResetPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+        setMessage(null);
+
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            });
+            if (error) throw error;
+            setMessage('Controlla la tua email per il link di reset della password!');
+            setEmail('');
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Si è verificato un errore';
+            setError(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Handle password reset mode
+        if (isResetMode) {
+            return handleResetPassword(e);
+        }
 
         // Check cooldown
         if (cooldownUntil && Date.now() < cooldownUntil) {
@@ -106,7 +133,7 @@ export default function LoginPage() {
                         </span>
                     </div>
                     <p className="text-gray-500">
-                        {isLogin ? 'Accedi al Tuo Account' : 'Crea un Nuovo Account'}
+                        {isResetMode ? 'Reset della Password' : isLogin ? 'Accedi al Tuo Account' : 'Crea un Nuovo Account'}
                     </p>
                 </div>
 
@@ -132,28 +159,45 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        {/* Password */}
-                        <div>
-                            <label htmlFor="password" className="block text-sm text-gray-400 mb-2">Password</label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    autoComplete={isLogin ? 'current-password' : 'new-password'}
-                                    required
-                                    minLength={8}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                                />
+                        {/* Password - Hidden in reset mode */}
+                        {!isResetMode && (
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label htmlFor="password" className="block text-sm text-gray-400">Password</label>
+                                    {isLogin && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsResetMode(true);
+                                                setError(null);
+                                                setMessage(null);
+                                            }}
+                                            className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                                        >
+                                            Password dimenticata?
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                                    <input
+                                        id="password"
+                                        name="password"
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="••••••••"
+                                        autoComplete={isLogin ? 'current-password' : 'new-password'}
+                                        required
+                                        minLength={8}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                                    />
+                                </div>
+                                {!isLogin && password.length > 0 && password.length < 8 && (
+                                    <p className="text-xs text-amber-400 mt-1">Minimo 8 caratteri richiesti</p>
+                                )}
                             </div>
-                            {!isLogin && password.length > 0 && password.length < 8 && (
-                                <p className="text-xs text-amber-400 mt-1">Minimo 8 caratteri richiesti</p>
-                            )}
-                        </div>
+                        )}
 
                         {/* Error Message */}
                         {error && (
@@ -179,11 +223,13 @@ export default function LoginPage() {
                         {/* Submit Button */}
                         <button
                             type="submit"
-                            disabled={loading || isInCooldown}
+                            disabled={loading || (!isResetMode && isInCooldown)}
                             className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-semibold transition-all flex items-center justify-center gap-2"
                         >
                             {loading ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : isResetMode ? (
+                                'Invia Email di Reset'
                             ) : isInCooldown ? (
                                 `Attendi ${remainingCooldown}s`
                             ) : isLogin ? (
@@ -196,20 +242,33 @@ export default function LoginPage() {
 
                     {/* Toggle */}
                     <div className="mt-6 text-center">
-                        <button
-                            onClick={() => {
-                                setIsLogin(!isLogin);
-                                setError(null);
-                                setMessage(null);
-                            }}
-                            className="text-gray-500 hover:text-white transition-colors text-sm"
-                        >
-                            {isLogin ? (
-                                <>Non hai un account? <span className="text-purple-400">Registrati</span></>
-                            ) : (
-                                <>Hai già un account? <span className="text-purple-400">Accedi</span></>
-                            )}
-                        </button>
+                        {isResetMode ? (
+                            <button
+                                onClick={() => {
+                                    setIsResetMode(false);
+                                    setError(null);
+                                    setMessage(null);
+                                }}
+                                className="text-gray-500 hover:text-white transition-colors text-sm"
+                            >
+                                <span className="text-purple-400">← Torna al login</span>
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    setIsLogin(!isLogin);
+                                    setError(null);
+                                    setMessage(null);
+                                }}
+                                className="text-gray-500 hover:text-white transition-colors text-sm"
+                            >
+                                {isLogin ? (
+                                    <>Non hai un account? <span className="text-purple-400">Registrati</span></>
+                                ) : (
+                                    <>Hai già un account? <span className="text-purple-400">Accedi</span></>
+                                )}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

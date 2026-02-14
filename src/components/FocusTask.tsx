@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { Check, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useSupabaseTaskStore } from '@/store/supabaseTaskStore';
 import { Confetti } from './Confetti';
 
 export function FocusTask() {
     const [note, setNote] = useState('');
     const [showConfetti, setShowConfetti] = useState(false);
+    const router = useRouter();
 
     const {
         loading,
@@ -17,6 +19,7 @@ export function FocusTask() {
         isAllCompleted,
         getTodayTasks,
         error,
+        initialize,
     } = useSupabaseTaskStore();
 
     const currentTask = getCurrentTask();
@@ -24,6 +27,13 @@ export function FocusTask() {
     const todayTasks = getTodayTasks();
     const completedCount = todayTasks.filter((t) => t.is_completed).length;
     const totalCount = todayTasks.length;
+
+    // Redirect to login if authentication error
+    useEffect(() => {
+        if (error && error.includes('non autenticato')) {
+            router.push('/login');
+        }
+    }, [error, router]);
 
     const handleComplete = async () => {
         if (currentTask) {
@@ -52,14 +62,25 @@ export function FocusTask() {
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-                <div className="space-y-4">
+                <div className="space-y-4 max-w-md">
                     <div className="text-red-400 text-lg">{error}</div>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-4 py-2 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
-                    >
-                        Riprova
-                    </button>
+                    <p className="text-gray-500 text-sm">
+                        Se il problema persiste, prova a disconnetterti e ricollegarti.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                        <button
+                            onClick={() => initialize()}
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl transition-colors"
+                        >
+                            Riprova
+                        </button>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-4 py-2 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                        >
+                            Ricarica Pagina
+                        </button>
+                    </div>
                 </div>
             </div>
         );

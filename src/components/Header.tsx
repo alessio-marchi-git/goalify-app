@@ -12,8 +12,8 @@ export function Header() {
     const router = useRouter();
     const pathname = usePathname();
 
-    // Don't show header on login page
-    if (pathname === '/login' || pathname.startsWith('/auth/')) {
+    // Don't show header on login, auth, and reset-password pages
+    if (pathname === '/login' || pathname.startsWith('/auth/') || pathname === '/reset-password') {
         return null;
     }
 
