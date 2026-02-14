@@ -89,7 +89,7 @@ export default function CalendarPage() {
                             month={month}
                             selectedDate={selectedDate}
                             onDayClick={handleDayClick}
-                            tasksByDate={tasksByDate}
+                            tasks={tasks}
                             todayStr={todayStr}
                         />
                     ))}
