@@ -12,11 +12,6 @@ export function Header() {
     const router = useRouter();
     const pathname = usePathname();
 
-    // Don't show header on login, auth, and reset-password pages
-    if (pathname === '/login' || pathname.startsWith('/auth/') || pathname === '/reset-password') {
-        return null;
-    }
-
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -39,10 +34,20 @@ export function Header() {
         };
     }, [isOpen]);
 
+    // Don't show header on login, auth, and reset-password pages
+    if (pathname === '/login' || pathname.startsWith('/auth/') || pathname === '/reset-password') {
+        return null;
+    }
+
     const handleLogout = async () => {
-        const supabase = createClient();
-        await supabase.auth.signOut();
-        router.push('/login');
+        try {
+            const supabase = createClient();
+            await supabase.auth.signOut();
+            router.push('/login');
+        } catch (error) {
+            console.error('Logout error:', error);
+            router.push('/login');
+        }
     };
 
     const menuItems = [
@@ -52,6 +57,7 @@ export function Header() {
     ];
 
     return (
+        <>
         <header className="fixed top-0 left-0 right-0 z-50 bg-gray-950/80 backdrop-blur-xl border-b border-white/5">
             <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
                 {/* Logo */}
@@ -118,5 +124,7 @@ export function Header() {
                 </div>
             </div>
         </header>
+        <div className="h-16" />
+        </>
     );
 }

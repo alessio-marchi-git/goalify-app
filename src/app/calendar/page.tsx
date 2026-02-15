@@ -89,7 +89,7 @@ export default function CalendarPage() {
                             month={month}
                             selectedDate={selectedDate}
                             onDayClick={handleDayClick}
-                            tasks={tasks}
+                            tasksByDate={tasksByDate}
                             todayStr={todayStr}
                         />
                     ))}
@@ -236,11 +236,11 @@ interface MonthCalendarProps {
     month: Date;
     selectedDate: string | null;
     onDayClick: (date: Date) => void;
-    tasks: Task[];
+    tasksByDate: Map<string, Task[]>;
     todayStr: string;
 }
 
-function MonthCalendar({ month, selectedDate, onDayClick, tasks, todayStr }: MonthCalendarProps) {
+function MonthCalendar({ month, selectedDate, onDayClick, tasksByDate, todayStr }: MonthCalendarProps) {
     const monthStart = startOfMonth(month);
     const monthEnd = endOfMonth(month);
     const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -250,7 +250,7 @@ function MonthCalendar({ month, selectedDate, onDayClick, tasks, todayStr }: Mon
     const weekDays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
     const getTasksForDate = (dateStr: string) => {
-        return tasks.filter((t) => t.date === dateStr);
+        return tasksByDate.get(dateStr) || [];
     };
 
     return (
@@ -296,9 +296,9 @@ function MonthCalendar({ month, selectedDate, onDayClick, tasks, todayStr }: Mon
                             </span>
                             {hasTasks && (
                                 <div className="flex gap-0.5 mt-1">
-                                    {dayTasks.slice(0, 3).map((task, i) => (
+                                    {dayTasks.slice(0, 3).map((task) => (
                                         <div
-                                            key={i}
+                                            key={task.id}
                                             className={`w-1.5 h-1.5 rounded-full ${task.is_completed ? 'opacity-100' : 'opacity-50'}`}
                                             style={{ backgroundColor: task.color }}
                                         />

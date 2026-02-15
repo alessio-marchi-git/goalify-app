@@ -35,9 +35,7 @@ export default function RootLayout({
       >
         <AppProvider>
           <Header />
-          <div className="pt-16">
-            {children}
-          </div>
+          {children}
         </AppProvider>
       </body>
     </html>

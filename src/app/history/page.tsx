@@ -14,16 +14,20 @@ export default function HistoryPage() {
 
     const { initialized, loading, tasks, getCompletedTasks, defaultTasks, loadHistoricalTasks } = useSupabaseTaskStore();
 
+    // Ensure startDate is not after endDate
+    const validStartDate = startDate > endDate ? endDate : startDate;
+    const validEndDate = endDate < startDate ? startDate : endDate;
+
     // Load historical tasks if date range is outside cached range
     useEffect(() => {
         if (initialized) {
-            loadHistoricalTasks(startDate, endDate);
+            loadHistoricalTasks(validStartDate, validEndDate);
         }
-    }, [initialized, startDate, endDate, loadHistoricalTasks]);
+    }, [initialized, validStartDate, validEndDate, loadHistoricalTasks]);
 
     const completedTasks = useMemo(() => {
-        return getCompletedTasks(startDate, endDate);
-    }, [getCompletedTasks, startDate, endDate]);
+        return getCompletedTasks(validStartDate, validEndDate);
+    }, [getCompletedTasks, validStartDate, validEndDate]);
 
     const uniqueTaskNames = useMemo(() => {
         const names = new Set(completedTasks.map((t) => t.name));
@@ -46,8 +50,8 @@ export default function HistoryPage() {
     // Prepare data for graph
     const graphData = useMemo(() => {
         const days = eachDayOfInterval({
-            start: parseISO(startDate),
-            end: parseISO(endDate),
+            start: parseISO(validStartDate),
+            end: parseISO(validEndDate),
         });
 
         return days.map((day) => {
@@ -66,7 +70,7 @@ export default function HistoryPage() {
                 byTask,
             };
         });
-    }, [startDate, endDate, completedTasks]);
+    }, [validStartDate, validEndDate, completedTasks]);
 
     const filteredLogs = useMemo(() => {
         if (viewMode === 'single' && selectedTaskName) {

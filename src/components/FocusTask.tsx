@@ -37,11 +37,11 @@ export function FocusTask() {
 
     const handleComplete = async () => {
         if (currentTask) {
-            await completeTask(currentTask.id, note);
+            const success = await completeTask(currentTask.id, note);
             setNote('');
 
-            // Check if this was the last task
-            if (completedCount + 1 === totalCount) {
+            // Check if this was the last task (only on success)
+            if (success && completedCount + 1 === totalCount) {
                 setShowConfetti(true);
             }
         }

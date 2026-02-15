@@ -17,9 +17,13 @@ export default function ResetPasswordPage() {
     useEffect(() => {
         // Check if user has a valid session (from reset email)
         const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                setError('Link non valido o scaduto. Richiedi un nuovo link di reset.');
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    setError('Link non valido o scaduto. Richiedi un nuovo link di reset.');
+                }
+            } catch {
+                setError('Errore di connessione. Verifica la tua rete e riprova.');
             }
         };
         checkSession();

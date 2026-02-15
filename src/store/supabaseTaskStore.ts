@@ -40,7 +40,7 @@ interface TaskStore {
 
     // Task actions
     initializeDailyTasks: () => Promise<void>;
-    completeTask: (id: string, note?: string) => Promise<void>;
+    completeTask: (id: string, note?: string) => Promise<boolean>;
     getCurrentTask: () => Task | null;
     isAllCompleted: () => boolean;
     getTodayTasks: () => Task[];
@@ -277,6 +277,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const completedAt = new Date().toISOString();
 
         try {
+            set({ error: null });
             const validatedNote = validateNote(note);
 
             // Optimistic update
@@ -295,10 +296,13 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             if (error) {
                 // Rollback on error
                 set({ tasks: previousTasks, error: 'Errore durante il completamento del task' });
-                throw error;
+                return false;
             }
+
+            return true;
         } catch (error) {
             console.error('Error completing task:', error);
+            return false;
         }
     },
 
@@ -368,6 +372,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const supabase = getSupabase();
 
         try {
+            set({ error: null });
             // Optimistic update
             const previousDefaultTasks = get().defaultTasks;
             set((state) => ({
@@ -390,6 +395,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const supabase = getSupabase();
 
         try {
+            set({ error: null });
             // Validate if name or color is being updated
             if (updates.name) {
                 updates.name = validateTaskName(updates.name);
@@ -422,6 +428,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const supabase = getSupabase();
 
         try {
+            set({ error: null });
             const updates = tasks.map((t, i) => ({ id: t.id, order: i + 1 }));
 
             // Optimistic update
