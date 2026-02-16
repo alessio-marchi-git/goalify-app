@@ -34,8 +34,9 @@ CREATE INDEX idx_tasks_user_completed ON tasks(user_id, is_completed);
 CREATE INDEX idx_tasks_user_completed_date ON tasks(user_id, is_completed, date);
 CREATE INDEX idx_default_tasks_user ON default_tasks(user_id);
 
--- Prevent duplicate default tasks on the same day (race condition guard)
+-- Prevent duplicate tasks on the same day (race condition / double-click guard)
 CREATE UNIQUE INDEX unique_default_task_per_day ON tasks(user_id, name, date) WHERE task_type = 'default';
+CREATE UNIQUE INDEX unique_adhoc_task_per_day ON tasks(user_id, name, date) WHERE task_type = 'adhoc';
 
 -- Row Level Security (RLS)
 ALTER TABLE default_tasks ENABLE ROW LEVEL SECURITY;

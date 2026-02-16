@@ -24,6 +24,7 @@ export default function CalendarPage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [newTaskName, setNewTaskName] = useState('');
     const [newTaskColor, setNewTaskColor] = useState(TASK_COLORS[0]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { initialized, loading, tasks, getTasksByDate, addAdhocTask } = useSupabaseTaskStore();
 
@@ -54,13 +55,18 @@ export default function CalendarPage() {
     };
 
     const handleAddTask = async () => {
-        if (newTaskName.trim() && selectedDate) {
-            const existingTasks = getTasksByDate(selectedDate);
-            const maxOrder = Math.max(...existingTasks.map((t) => t.order), 0);
-            await addAdhocTask(selectedDate, newTaskName.trim(), newTaskColor, maxOrder + 1);
-            setNewTaskName('');
-            setNewTaskColor(TASK_COLORS[0]);
-            setShowAddModal(false);
+        if (newTaskName.trim() && selectedDate && !isSubmitting) {
+            setIsSubmitting(true);
+            try {
+                const existingTasks = getTasksByDate(selectedDate);
+                const maxOrder = Math.max(...existingTasks.map((t) => t.order), 0);
+                await addAdhocTask(selectedDate, newTaskName.trim(), newTaskColor, maxOrder + 1);
+                setNewTaskName('');
+                setNewTaskColor(TASK_COLORS[0]);
+                setShowAddModal(false);
+            } finally {
+                setIsSubmitting(false);
+            }
         }
     };
 
@@ -218,10 +224,10 @@ export default function CalendarPage() {
 
                                 <button
                                     type="submit"
-                                    disabled={!newTaskName.trim()}
+                                    disabled={!newTaskName.trim() || isSubmitting}
                                     className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-semibold transition-all"
                                 >
-                                    Aggiungi
+                                    {isSubmitting ? 'Aggiunta...' : 'Aggiungi'}
                                 </button>
                             </form>
                         </div>

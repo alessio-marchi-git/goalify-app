@@ -310,7 +310,12 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const today = getToday();
         const todayTasks = get()
             .tasks.filter((t) => t.date === today && !t.is_completed && t.is_enabled)
-            .sort((a, b) => a.order - b.order);
+            .sort((a, b) => {
+                if (a.task_type !== b.task_type) {
+                    return a.task_type === 'default' ? -1 : 1;
+                }
+                return a.order - b.order;
+            });
         return todayTasks.length > 0 ? todayTasks[0] : null;
     },
 
@@ -324,13 +329,23 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const today = getToday();
         return get()
             .tasks.filter((t) => t.date === today)
-            .sort((a, b) => a.order - b.order);
+            .sort((a, b) => {
+                if (a.task_type !== b.task_type) {
+                    return a.task_type === 'default' ? -1 : 1;
+                }
+                return a.order - b.order;
+            });
     },
 
     getTasksByDate: (date: string) => {
         return get()
             .tasks.filter((t) => t.date === date)
-            .sort((a, b) => a.order - b.order);
+            .sort((a, b) => {
+                if (a.task_type !== b.task_type) {
+                    return a.task_type === 'default' ? -1 : 1;
+                }
+                return a.order - b.order;
+            });
     },
 
     addDefaultTask: async (name: string, color: string) => {
@@ -468,7 +483,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
 
             const { data, error } = await supabase
                 .from('tasks')
-                .insert({
+                .upsert({
                     user_id: user.id,
                     name: validatedName,
                     date,
@@ -477,13 +492,13 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
                     color,
                     is_enabled: true,
                     task_type: 'adhoc',
-                })
+                }, { onConflict: 'user_id,name,date', ignoreDuplicates: true })
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (error && error.code !== 'PGRST116') throw error;
 
-            if (data) {
+            if (data && !get().tasks.some((t) => t.id === data.id)) {
                 set((state) => ({ tasks: [...state.tasks, data] }));
             }
         } catch (error) {
