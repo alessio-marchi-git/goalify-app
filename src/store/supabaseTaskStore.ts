@@ -54,6 +54,7 @@ interface TaskStore {
 
     // Ad-hoc tasks
     addAdhocTask: (date: string, name: string, color: string, order: number) => Promise<boolean>;
+    removeTask: (id: string) => Promise<boolean>;
 
     // History
     getCompletedTasks: (startDate: string, endDate: string) => Task[];
@@ -542,6 +543,38 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         } catch (error) {
             console.error('Error adding adhoc task:', error);
             set({ error: error instanceof Error ? error.message : 'Errore durante l\'aggiunta del task' });
+            return false;
+        }
+    },
+
+    removeTask: async (id: string) => {
+        const supabase = getSupabase();
+
+        try {
+            set({ error: null });
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Utente non autenticato');
+
+            // Optimistic update
+            const previousTasks = get().tasks;
+            set((state) => ({
+                tasks: state.tasks.filter((t) => t.id !== id),
+            }));
+
+            const { error } = await supabase
+                .from('tasks')
+                .delete()
+                .eq('id', id)
+                .eq('user_id', user.id);
+
+            if (error) {
+                set({ tasks: previousTasks, error: 'Errore durante l\'eliminazione del task' });
+                throw error;
+            }
+            return true;
+        } catch (error) {
+            console.error('Error removing task:', error);
             return false;
         }
     },

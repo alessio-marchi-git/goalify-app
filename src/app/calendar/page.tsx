@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
     format,
     startOfMonth,
@@ -13,7 +13,7 @@ import {
     endOfWeek,
 } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { ChevronDown, Plus, X, Check } from 'lucide-react';
+import { ChevronDown, Plus, X, Check, Trash2 } from 'lucide-react';
 import { useSupabaseTaskStore, Task } from '@/store/supabaseTaskStore';
 import { TASK_COLORS } from '@/types/task';
 import { ColorPicker } from '@/components/ColorPicker';
@@ -25,8 +25,9 @@ export default function CalendarPage() {
     const [newTaskName, setNewTaskName] = useState('');
     const [newTaskColor, setNewTaskColor] = useState(TASK_COLORS[0]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-    const { initialized, loading, tasks, getTasksByDate, addAdhocTask } = useSupabaseTaskStore();
+    const { initialized, loading, tasks, getTasksByDate, addAdhocTask, removeTask, error } = useSupabaseTaskStore();
 
     const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
@@ -60,13 +61,22 @@ export default function CalendarPage() {
             try {
                 const existingTasks = getTasksByDate(selectedDate);
                 const maxOrder = Math.max(...existingTasks.map((t) => t.order), 0);
-                await addAdhocTask(selectedDate, newTaskName.trim(), newTaskColor, maxOrder + 1);
-                setNewTaskName('');
-                setNewTaskColor(TASK_COLORS[0]);
-                setShowAddModal(false);
+                const success = await addAdhocTask(selectedDate, newTaskName.trim(), newTaskColor, maxOrder + 1);
+                if (success) {
+                    setNewTaskName('');
+                    setNewTaskColor(TASK_COLORS[0]);
+                    setShowAddModal(false);
+                }
             } finally {
                 setIsSubmitting(false);
             }
+        }
+    };
+
+    const handleDeleteTask = async (id: string) => {
+        const success = await removeTask(id);
+        if (success) {
+            setDeleteConfirmId(null);
         }
     };
 
@@ -133,6 +143,12 @@ export default function CalendarPage() {
                                 </button>
                             </div>
 
+                            {error && (
+                                <div role="alert" className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                                    {error}
+                                </div>
+                            )}
+
                             {/* Task List */}
                             <div className="space-y-2 max-h-48 overflow-y-auto mb-4">
                                 {selectedDateTasks.length === 0 ? (
@@ -158,6 +174,15 @@ export default function CalendarPage() {
                                                 <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">
                                                     Ad-hoc
                                                 </span>
+                                            )}
+                                            {!isPastDate && !task.is_completed && (
+                                                <button
+                                                    onClick={() => setDeleteConfirmId(task.id)}
+                                                    className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    aria-label={`Elimina task ${task.name}`}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
                                             )}
                                         </div>
                                     ))
@@ -230,6 +255,32 @@ export default function CalendarPage() {
                                     {isSubmitting ? 'Aggiunta...' : 'Aggiungi'}
                                 </button>
                             </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {deleteConfirmId && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-gray-900 border border-white/10 rounded-2xl p-6 w-full max-w-md">
+                            <h2 className="text-xl font-bold text-white mb-4">Conferma Eliminazione</h2>
+                            <p className="text-gray-400 mb-6">
+                                Sei sicuro di voler eliminare questo task? Questa azione non può essere annullata.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setDeleteConfirmId(null)}
+                                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-white font-semibold transition-all"
+                                >
+                                    Annulla
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteTask(deleteConfirmId)}
+                                    className="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-xl text-white font-semibold transition-all"
+                                >
+                                    Elimina
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
