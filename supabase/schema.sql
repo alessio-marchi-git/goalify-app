@@ -23,13 +23,14 @@ CREATE TABLE tasks (
   "order" INT NOT NULL,
   color TEXT NOT NULL CHECK (color ~ '^#[0-9a-fA-F]{6}$'),
   is_enabled BOOLEAN DEFAULT true,
-  task_type TEXT DEFAULT 'default' CHECK (task_type IN ('default', 'adhoc')),
+  task_type TEXT NOT NULL DEFAULT 'default' CHECK (task_type IN ('default', 'adhoc')),
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Indexes for performance
 CREATE INDEX idx_tasks_user_date ON tasks(user_id, date);
+CREATE INDEX idx_tasks_user_date_type_order ON tasks(user_id, date, task_type, "order");
 CREATE INDEX idx_tasks_user_completed ON tasks(user_id, is_completed);
 CREATE INDEX idx_tasks_user_completed_date ON tasks(user_id, is_completed, date);
 CREATE INDEX idx_default_tasks_user ON default_tasks(user_id);

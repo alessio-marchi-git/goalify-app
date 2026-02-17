@@ -60,8 +60,9 @@ export default function CalendarPage() {
             setIsSubmitting(true);
             try {
                 const existingTasks = getTasksByDate(selectedDate);
-                const maxOrder = Math.max(...existingTasks.map((t) => t.order), 0);
-                const success = await addAdhocTask(selectedDate, newTaskName.trim(), newTaskColor, maxOrder + 1);
+                const existingAdhocTasks = existingTasks.filter((t) => t.task_type === 'adhoc');
+                const maxAdhocOrder = Math.max(...existingAdhocTasks.map((t) => t.order), 0);
+                const success = await addAdhocTask(selectedDate, newTaskName.trim(), newTaskColor, maxAdhocOrder + 1);
                 if (success) {
                     setNewTaskName('');
                     setNewTaskColor(TASK_COLORS[0]);

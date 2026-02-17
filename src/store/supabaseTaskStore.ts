@@ -17,6 +17,7 @@ export interface Task {
     is_enabled: boolean;
     task_type: 'default' | 'adhoc';
     completed_at?: string;
+    created_at?: string;
 }
 
 export interface DefaultTask {
@@ -71,6 +72,36 @@ const getSupabase = () => {
 };
 
 const getToday = () => format(new Date(), 'yyyy-MM-dd');
+
+const normalizeTaskType = (taskType: Task['task_type'] | null | undefined): Task['task_type'] => {
+    return taskType === 'adhoc' ? 'adhoc' : 'default';
+};
+
+const normalizeTask = (task: Task): Task => ({
+    ...task,
+    task_type: normalizeTaskType((task as Task & { task_type?: Task['task_type'] | null }).task_type),
+});
+
+const compareTasksForDay = (a: Task, b: Task): number => {
+    const normalizedTypeA = normalizeTaskType(a.task_type);
+    const normalizedTypeB = normalizeTaskType(b.task_type);
+
+    if (normalizedTypeA !== normalizedTypeB) {
+        return normalizedTypeA === 'default' ? -1 : 1;
+    }
+
+    if (a.order !== b.order) {
+        return a.order - b.order;
+    }
+
+    const createdA = a.created_at ?? '';
+    const createdB = b.created_at ?? '';
+    if (createdA !== createdB) {
+        return createdA.localeCompare(createdB);
+    }
+
+    return a.id.localeCompare(b.id);
+};
 
 // Validation helpers
 const validateTaskName = (name: string): string => {
@@ -182,7 +213,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             console.log('[TaskStore] Loaded tasks:', tasks?.length);
 
             set({
-                tasks: tasks || [],
+                tasks: (tasks || []).map(normalizeTask),
                 loading: false,
                 initialized: true,
             });
@@ -231,7 +262,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             if (dbTasks && dbTasks.length > 0) {
                 console.log('[TaskStore] Found', dbTasks.length, 'tasks in DB, syncing to store');
                 set((state) => ({
-                    tasks: [...state.tasks, ...dbTasks],
+                    tasks: [...state.tasks, ...dbTasks.map(normalizeTask)],
                 }));
                 return;
             }
@@ -265,7 +296,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
 
                 if (data) {
                     console.log('[TaskStore] Successfully created', data.length, 'tasks');
-                    set((state) => ({ tasks: [...state.tasks, ...data] }));
+                    set((state) => ({ tasks: [...state.tasks, ...data.map(normalizeTask)] }));
                 }
             } else {
                 console.log('[TaskStore] No enabled default tasks to create');
@@ -317,12 +348,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const today = getToday();
         const todayTasks = get()
             .tasks.filter((t) => t.date === today && !t.is_completed && t.is_enabled)
-            .sort((a, b) => {
-                if (a.task_type !== b.task_type) {
-                    return a.task_type === 'default' ? -1 : 1;
-                }
-                return a.order - b.order;
-            });
+            .sort(compareTasksForDay);
         return todayTasks.length > 0 ? todayTasks[0] : null;
     },
 
@@ -336,23 +362,13 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const today = getToday();
         return get()
             .tasks.filter((t) => t.date === today)
-            .sort((a, b) => {
-                if (a.task_type !== b.task_type) {
-                    return a.task_type === 'default' ? -1 : 1;
-                }
-                return a.order - b.order;
-            });
+            .sort(compareTasksForDay);
     },
 
     getTasksByDate: (date: string) => {
         return get()
             .tasks.filter((t) => t.date === date)
-            .sort((a, b) => {
-                if (a.task_type !== b.task_type) {
-                    return a.task_type === 'default' ? -1 : 1;
-                }
-                return a.order - b.order;
-            });
+            .sort(compareTasksForDay);
     },
 
     addDefaultTask: async (name: string, color: string) => {
@@ -519,25 +535,95 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Utente non autenticato');
 
+            const existingTasksForDate = get().tasks.filter((t) => t.date === date);
+            if (existingTasksForDate.length === 0) {
+                const { data: dbTasks, error: checkError } = await supabase
+                    .from('tasks')
+                    .select('*')
+                    .eq('date', date)
+                    .eq('user_id', user.id);
+
+                if (checkError) {
+                    throw checkError;
+                }
+
+                if (dbTasks && dbTasks.length > 0) {
+                    const normalizedDbTasks = dbTasks.map(normalizeTask);
+                    set((state) => {
+                        const existingIds = new Set(state.tasks.map((task) => task.id));
+                        const incoming = normalizedDbTasks.filter((task) => !existingIds.has(task.id));
+                        return { tasks: [...state.tasks, ...incoming] };
+                    });
+                } else {
+                    const enabledDefaults = get()
+                        .defaultTasks
+                        .filter((task) => task.is_enabled)
+                        .sort((a, b) => a.order - b.order);
+
+                    if (enabledDefaults.length > 0) {
+                        const defaultTasksToInsert = enabledDefaults.map((task) => ({
+                            user_id: user.id,
+                            name: task.name,
+                            date,
+                            is_completed: false,
+                            order: task.order,
+                            color: task.color,
+                            is_enabled: true,
+                            task_type: 'default' as const,
+                        }));
+
+                        const { data: insertedDefaults, error: insertDefaultsError } = await supabase
+                            .from('tasks')
+                            .insert(defaultTasksToInsert)
+                            .select();
+
+                        if (insertDefaultsError) {
+                            throw insertDefaultsError;
+                        }
+
+                        if (insertedDefaults && insertedDefaults.length > 0) {
+                            set((state) => ({
+                                tasks: [...state.tasks, ...insertedDefaults.map(normalizeTask)],
+                            }));
+                        }
+                    }
+                }
+            }
+
+            const dateTasks = get().tasks.filter((task) => task.date === date);
+            const maxAdhocOrder = Math.max(
+                ...dateTasks
+                    .filter((task) => normalizeTaskType(task.task_type) === 'adhoc')
+                    .map((task) => task.order),
+                0
+            );
+            const nextAdhocOrder = Math.max(maxAdhocOrder + 1, order);
+
             const { data, error } = await supabase
                 .from('tasks')
-                .upsert({
+                .insert({
                     user_id: user.id,
                     name: validatedName,
                     date,
                     is_completed: false,
-                    order,
+                    order: nextAdhocOrder,
                     color,
                     is_enabled: true,
                     task_type: 'adhoc',
-                }, { onConflict: 'user_id,name,date', ignoreDuplicates: true })
+                })
                 .select()
                 .single();
 
-            if (error && error.code !== 'PGRST116') throw error;
+            if (error) {
+                if (error.code === '23505') {
+                    set({ error: 'Hai già aggiunto un task ad-hoc con questo nome per questo giorno' });
+                    return false;
+                }
+                throw error;
+            }
 
             if (data && !get().tasks.some((t) => t.id === data.id)) {
-                set((state) => ({ tasks: [...state.tasks, data] }));
+                set((state) => ({ tasks: [...state.tasks, normalizeTask(data)] }));
             }
             return true;
         } catch (error) {
@@ -611,7 +697,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
                 // Merge with existing tasks, avoiding duplicates
                 set((state) => {
                     const existingIds = new Set(state.tasks.map((t) => t.id));
-                    const newTasks = data.filter((t) => !existingIds.has(t.id));
+                    const newTasks = data.map(normalizeTask).filter((t) => !existingIds.has(t.id));
                     return { tasks: [...state.tasks, ...newTasks], loading: false };
                 });
             }
