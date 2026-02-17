@@ -535,61 +535,6 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Utente non autenticato');
 
-            const existingTasksForDate = get().tasks.filter((t) => t.date === date);
-            if (existingTasksForDate.length === 0) {
-                const { data: dbTasks, error: checkError } = await supabase
-                    .from('tasks')
-                    .select('*')
-                    .eq('date', date)
-                    .eq('user_id', user.id);
-
-                if (checkError) {
-                    throw checkError;
-                }
-
-                if (dbTasks && dbTasks.length > 0) {
-                    const normalizedDbTasks = dbTasks.map(normalizeTask);
-                    set((state) => {
-                        const existingIds = new Set(state.tasks.map((task) => task.id));
-                        const incoming = normalizedDbTasks.filter((task) => !existingIds.has(task.id));
-                        return { tasks: [...state.tasks, ...incoming] };
-                    });
-                } else {
-                    const enabledDefaults = get()
-                        .defaultTasks
-                        .filter((task) => task.is_enabled)
-                        .sort((a, b) => a.order - b.order);
-
-                    if (enabledDefaults.length > 0) {
-                        const defaultTasksToInsert = enabledDefaults.map((task) => ({
-                            user_id: user.id,
-                            name: task.name,
-                            date,
-                            is_completed: false,
-                            order: task.order,
-                            color: task.color,
-                            is_enabled: true,
-                            task_type: 'default' as const,
-                        }));
-
-                        const { data: insertedDefaults, error: insertDefaultsError } = await supabase
-                            .from('tasks')
-                            .insert(defaultTasksToInsert)
-                            .select();
-
-                        if (insertDefaultsError) {
-                            throw insertDefaultsError;
-                        }
-
-                        if (insertedDefaults && insertedDefaults.length > 0) {
-                            set((state) => ({
-                                tasks: [...state.tasks, ...insertedDefaults.map(normalizeTask)],
-                            }));
-                        }
-                    }
-                }
-            }
-
             const dateTasks = get().tasks.filter((task) => task.date === date);
             const maxAdhocOrder = Math.max(
                 ...dateTasks
