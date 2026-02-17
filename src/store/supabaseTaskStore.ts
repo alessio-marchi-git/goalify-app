@@ -47,13 +47,13 @@ interface TaskStore {
     getTasksByDate: (date: string) => Task[];
 
     // Default task management
-    addDefaultTask: (name: string, color: string) => Promise<void>;
-    removeDefaultTask: (id: string) => Promise<void>;
-    updateDefaultTask: (id: string, updates: Partial<DefaultTask>) => Promise<void>;
-    reorderDefaultTasks: (tasks: DefaultTask[]) => Promise<void>;
+    addDefaultTask: (name: string, color: string) => Promise<boolean>;
+    removeDefaultTask: (id: string) => Promise<boolean>;
+    updateDefaultTask: (id: string, updates: Partial<DefaultTask>) => Promise<boolean>;
+    reorderDefaultTasks: (tasks: DefaultTask[]) => Promise<boolean>;
 
     // Ad-hoc tasks
-    addAdhocTask: (date: string, name: string, color: string, order: number) => Promise<void>;
+    addAdhocTask: (date: string, name: string, color: string, order: number) => Promise<boolean>;
 
     // History
     getCompletedTasks: (startDate: string, endDate: string) => Task[];
@@ -129,6 +129,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             const { data: defaultTasks, error: defaultError } = await supabase
                 .from('default_tasks')
                 .select('*')
+                .eq('user_id', user.id)
                 .order('order');
 
             if (defaultError) {
@@ -168,6 +169,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             const { data: tasks, error: tasksError } = await supabase
                 .from('tasks')
                 .select('*')
+                .eq('user_id', user.id)
                 .gte('date', thirtyDaysAgo)
                 .order('date', { ascending: false });
 
@@ -280,6 +282,9 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             set({ error: null });
             const validatedNote = validateNote(note);
 
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Utente non autenticato');
+
             // Optimistic update
             const previousTasks = get().tasks;
             set((state) => ({
@@ -291,7 +296,8 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             const { error } = await supabase
                 .from('tasks')
                 .update({ is_completed: true, note: validatedNote, completed_at: completedAt })
-                .eq('id', id);
+                .eq('id', id)
+                .eq('user_id', user.id);
 
             if (error) {
                 // Rollback on error
@@ -352,6 +358,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const supabase = getSupabase();
 
         try {
+            set({ error: null });
             const validatedName = validateTaskName(name);
             validateColor(color);
 
@@ -377,9 +384,11 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             if (data) {
                 set((state) => ({ defaultTasks: [...state.defaultTasks, data] }));
             }
+            return true;
         } catch (error) {
             console.error('Error adding default task:', error);
             set({ error: error instanceof Error ? error.message : 'Errore durante l\'aggiunta del task' });
+            return false;
         }
     },
 
@@ -388,21 +397,31 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
 
         try {
             set({ error: null });
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Utente non autenticato');
+
             // Optimistic update
             const previousDefaultTasks = get().defaultTasks;
             set((state) => ({
                 defaultTasks: state.defaultTasks.filter((t) => t.id !== id),
             }));
 
-            const { error } = await supabase.from('default_tasks').delete().eq('id', id);
+            const { error } = await supabase
+                .from('default_tasks')
+                .delete()
+                .eq('id', id)
+                .eq('user_id', user.id);
 
             if (error) {
                 // Rollback on error
                 set({ defaultTasks: previousDefaultTasks, error: 'Errore durante l\'eliminazione del task' });
                 throw error;
             }
+            return true;
         } catch (error) {
             console.error('Error removing default task:', error);
+            return false;
         }
     },
 
@@ -411,6 +430,10 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
 
         try {
             set({ error: null });
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Utente non autenticato');
+
             // Validate if name or color is being updated
             if (updates.name) {
                 updates.name = validateTaskName(updates.name);
@@ -427,15 +450,21 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
                 ),
             }));
 
-            const { error } = await supabase.from('default_tasks').update(updates).eq('id', id);
+            const { error } = await supabase
+                .from('default_tasks')
+                .update(updates)
+                .eq('id', id)
+                .eq('user_id', user.id);
 
             if (error) {
                 // Rollback on error
                 set({ defaultTasks: previousDefaultTasks, error: 'Errore durante l\'aggiornamento del task' });
                 throw error;
             }
+            return true;
         } catch (error) {
             console.error('Error updating default task:', error);
+            return false;
         }
     },
 
@@ -444,6 +473,10 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
 
         try {
             set({ error: null });
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Utente non autenticato');
+
             const updates = tasks.map((t, i) => ({ id: t.id, order: i + 1 }));
 
             // Optimistic update
@@ -456,6 +489,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
                     .from('default_tasks')
                     .update({ order: update.order })
                     .eq('id', update.id)
+                    .eq('user_id', user.id)
             );
 
             const results = await Promise.all(updatePromises);
@@ -466,8 +500,10 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
                 set({ defaultTasks: previousDefaultTasks, error: 'Errore durante il riordino dei task' });
                 throw new Error('Failed to reorder some tasks');
             }
+            return true;
         } catch (error) {
             console.error('Error reordering default tasks:', error);
+            return false;
         }
     },
 
@@ -475,6 +511,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const supabase = getSupabase();
 
         try {
+            set({ error: null });
             const validatedName = validateTaskName(name);
             validateColor(color);
 
@@ -501,9 +538,11 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
             if (data && !get().tasks.some((t) => t.id === data.id)) {
                 set((state) => ({ tasks: [...state.tasks, data] }));
             }
+            return true;
         } catch (error) {
             console.error('Error adding adhoc task:', error);
             set({ error: error instanceof Error ? error.message : 'Errore durante l\'aggiunta del task' });
+            return false;
         }
     },
 
@@ -521,9 +560,13 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         try {
             set({ loading: true, error: null });
 
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Utente non autenticato');
+
             const { data, error } = await supabase
                 .from('tasks')
                 .select('*')
+                .eq('user_id', user.id)
                 .gte('date', startDate)
                 .lte('date', endDate)
                 .eq('is_completed', true)

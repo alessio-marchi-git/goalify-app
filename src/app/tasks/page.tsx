@@ -150,16 +150,20 @@ export default function TasksPage() {
 
     const handleAddTask = async () => {
         if (newTaskName.trim()) {
-            await addDefaultTask(newTaskName.trim(), newTaskColor);
-            setNewTaskName('');
-            setNewTaskColor(TASK_COLORS[0]);
-            setShowAddModal(false);
+            const success = await addDefaultTask(newTaskName.trim(), newTaskColor);
+            if (success) {
+                setNewTaskName('');
+                setNewTaskColor(TASK_COLORS[0]);
+                setShowAddModal(false);
+            }
         }
     };
 
     const handleDeleteTask = async (id: string) => {
-        await removeDefaultTask(id);
-        setShowDeleteConfirm(null);
+        const success = await removeDefaultTask(id);
+        if (success) {
+            setShowDeleteConfirm(null);
+        }
     };
 
     if (!initialized || loading) {
