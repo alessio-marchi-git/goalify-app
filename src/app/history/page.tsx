@@ -12,7 +12,7 @@ export default function HistoryPage() {
     const [viewMode, setViewMode] = useState<'all' | 'single'>('all');
     const [selectedTaskName, setSelectedTaskName] = useState<string | null>(null);
 
-    const { initialized, loading, tasks, getCompletedTasks, defaultTasks, loadHistoricalTasks } = useSupabaseTaskStore();
+    const { initialized, loading, historicalLoading, getCompletedTasks, defaultTasks, loadHistoricalTasks } = useSupabaseTaskStore();
 
     // Ensure startDate is not after endDate
     const validStartDate = startDate > endDate ? endDate : startDate;
@@ -153,6 +153,9 @@ export default function HistoryPage() {
                 {/* Graph */}
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
                     <h3 className="text-lg font-semibold text-white mb-4">Grafico Completamenti</h3>
+                    {historicalLoading && (
+                        <p className="text-xs text-gray-500 mb-3">Aggiornamento storico…</p>
+                    )}
 
                     {graphData.length > 0 ? (
                         <div className="relative h-64">

@@ -33,6 +33,7 @@ interface TaskStore {
     tasks: Task[];
     defaultTasks: DefaultTask[];
     loading: boolean;
+    historicalLoading: boolean;
     initialized: boolean;
     error: string | null;
 
@@ -132,6 +133,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
     tasks: [],
     defaultTasks: [],
     loading: false,
+    historicalLoading: false,
     initialized: false,
     error: null,
 
@@ -622,7 +624,7 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
         const supabase = getSupabase();
 
         try {
-            set({ loading: true, error: null });
+            set({ historicalLoading: true, error: null });
 
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Utente non autenticato');
@@ -643,13 +645,15 @@ export const useSupabaseTaskStore = create<TaskStore>((set, get) => ({
                 set((state) => {
                     const existingIds = new Set(state.tasks.map((t) => t.id));
                     const newTasks = data.map(normalizeTask).filter((t) => !existingIds.has(t.id));
-                    return { tasks: [...state.tasks, ...newTasks], loading: false };
+                    return { tasks: [...state.tasks, ...newTasks], historicalLoading: false };
                 });
+            } else {
+                set({ historicalLoading: false });
             }
         } catch (error) {
             console.error('Error loading historical tasks:', error);
             set({
-                loading: false,
+                historicalLoading: false,
                 error: 'Errore durante il caricamento dello storico'
             });
         }

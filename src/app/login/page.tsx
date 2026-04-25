@@ -15,8 +15,6 @@ export default function LoginPage() {
     const [failedAttempts, setFailedAttempts] = useState(0);
     const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
 
-    const supabase = createClient();
-
     // Handle cooldown countdown
     useEffect(() => {
         if (!cooldownUntil) return;
@@ -43,6 +41,7 @@ export default function LoginPage() {
         setMessage(null);
 
         try {
+            const supabase = createClient();
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${window.location.origin}/reset-password`,
             });
@@ -81,6 +80,7 @@ export default function LoginPage() {
         setMessage(null);
 
         try {
+            const supabase = createClient();
             if (isLogin) {
                 const { error } = await supabase.auth.signInWithPassword({
                     email,
