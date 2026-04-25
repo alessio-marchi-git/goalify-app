@@ -12,12 +12,12 @@ export default function ResetPasswordPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const router = useRouter();
-    const supabase = createClient();
 
     useEffect(() => {
         // Check if user has a valid session (from reset email)
         const checkSession = async () => {
             try {
+                const supabase = createClient();
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) {
                     setError('Link non valido o scaduto. Richiedi un nuovo link di reset.');
@@ -27,7 +27,7 @@ export default function ResetPasswordPage() {
             }
         };
         checkSession();
-    }, [supabase]);
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,6 +47,7 @@ export default function ResetPasswordPage() {
         setLoading(true);
 
         try {
+            const supabase = createClient();
             const { error } = await supabase.auth.updateUser({
                 password: password,
             });
